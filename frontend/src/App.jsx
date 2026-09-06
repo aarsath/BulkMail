@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useState } from 'react';
 
 // local backend by default — change to your deployed backend URL when you host it
-const API_BASE = 'http://localhost:5000';
+const API_BASE = 'https://bulkmail-l71v.onrender.com';
 
 function App() {
   const [subject, setSubject] = useState('');
