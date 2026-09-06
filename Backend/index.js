@@ -73,11 +73,13 @@ app.post('/sendemail', async (req, res) => {
       return res.status(500).json({ success: false, message: 'Admin mail credentials are not configured in the database' });
     }
 
-    const transporter = nodemailer.createTransport({
-      service: 'Gmail',
-      auth: { user: creds.user, pass: creds.pass },
-    });
-
+   const transporter = nodemailer.createTransport({
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
+  family: 4, 
+  auth: { user: creds.user, pass: creds.pass },
+});
     let successCount = 0;
     const failedRecipients = [];
 
