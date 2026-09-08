@@ -8,18 +8,24 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI; // put your real connection string in Backend/.env, NEVER hardcode it here
+const MONGO_URI = process.env.MONGO_URI; // put your real connection string in Vercel env vars
 
-if (!MONGO_URI) {
-  console.error('MONGO_URI is missing. Create a Backend/.env file (see .env.example).');
-  process.exit(1);
+let isConnected = false;
+async function connectDB() {
+  if (isConnected || mongoose.connection.readyState === 1) return;
+  await mongoose.connect(MONGO_URI);
+  isConnected = true;
+  console.log('Connected to MongoDB');
 }
-
-mongoose
-  .connect(MONGO_URI)
-  .then(() => console.log('Connected to MongoDB'))
-  .catch((err) => console.error('Error connecting to MongoDB:', err));
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error('Error connecting to MongoDB:', err);
+    res.status(500).json({ success: false, message: 'Database connection failed' });
+  }
+});
 
 // ---- Admin Gmail credentials (same collection as before) ----
 const authSchema = new mongoose.Schema(
@@ -31,7 +37,7 @@ const authSchema = new mongoose.Schema(
 );
 const Authentication = mongoose.model('Authentication', authSchema, 'bulkmail');
 
-// ---- NEW: every bulk send gets logged here ----
+// ---- every bulk send gets logged here ----
 const emailRecordSchema = new mongoose.Schema({
   subject: { type: String, required: true },
   body: { type: String, required: true },
@@ -74,10 +80,7 @@ app.post('/sendemail', async (req, res) => {
     }
 
     const transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false, // STARTTLS on port 587 (must match: 587 -> secure:false, 465 -> secure:true)
-      family: 4,
+      service: 'gmail',
       auth: { user: creds.user, pass: creds.pass },
     });
 
@@ -127,7 +130,7 @@ app.post('/sendemail', async (req, res) => {
   }
 });
 
-// ---- NEW: fetch sent email history ----
+// ---- fetch sent email history ----
 app.get('/history', async (req, res) => {
   try {
     const records = await EmailRecord.find().sort({ sentAt: -1 }).limit(100);
@@ -138,6 +141,6 @@ app.get('/history', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+// Vercel exports this directly as the serverless function handler.
+// (No app.listen() here — Vercel manages that itself.)
+module.exports = app;
